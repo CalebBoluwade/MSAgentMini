@@ -22,6 +22,9 @@ archives:
         format: zip
 checksum:
   name_template: "checksums.txt"
+release:
+  replace_existing_draft: true
+  overwrite: true
 changelog:
   sort: asc
   filters:
