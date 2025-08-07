@@ -1,0 +1,26 @@
+[Unit]
+Description=MS Agent
+Documentation=https://docs.monitoringspirit.com
+After=syslog.target network.target
+Wants=network-online.target
+
+[Service]
+User=nobody
+Group=ms_agent
+PermissionsStartOnly=true
+WorkingDirectory=/opt/ms_agent
+ExecStart={{ target_path }}/{{ go_binary }
+ExecStart=/opt/ms_agent/venv/bin/python3.12 /opt/ms_agent/service/MSAgent.py
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/ms_agent
+StandardOutput=journal
+StandardError=journal
+LogLevelMax=debug
+LimitNOFILE=131072
+LimitNPROC=8192
+TimeoutStartSec=5
+Restart=always
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

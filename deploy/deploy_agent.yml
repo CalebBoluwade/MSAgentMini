@@ -1,0 +1,19 @@
+- name: Deploy MS Agent Service
+  hosts: agents
+  remote_user: cboluwade
+  become: yes
+  vars:
+    repo_owner: your-org
+    repo_name: go-app
+    release_version: latest # or "v1.2.3"
+    linux_binary_name: goapp-linux-amd64.tar.gz
+    windows_binary_name: goapp-windows-amd64.zip
+    target_path: /opt/goapp
+    windows_target_path: 'C:\\goapp'
+  vars_files:
+    - vars/main.yml
+  roles:
+    - role: ms_agent_linux
+      when: ansible_os_family == "RedHat"
+    - role: ms_agent_windows
+      when: ansible_os_family == "Windows"

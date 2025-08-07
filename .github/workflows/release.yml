@@ -1,0 +1,51 @@
+name: Agent Release
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        goos: [ linux, windows, darwin ]
+        goarch: [ amd64, arm64 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+#      - name: Build Binary
+#        run: |
+#            mkdir -p build
+#            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o build/myapp-${{ matrix.goos }}-${{ matrix.goarch }}
+
+#        - name: Upload Release Assets
+#          uses: softprops/action-gh-release@v2
+#              if: startsWith(github.ref, 'refs/tags/')
+#              with:
+#                files: |
+#                  build/*
+#              env:
+#                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

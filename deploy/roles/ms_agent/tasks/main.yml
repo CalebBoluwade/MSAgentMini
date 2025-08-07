@@ -1,0 +1,187 @@
+#- name: Ensure python3-apt is installed
+#  raw: echo "{{ ansible_become_pass }}" | sudo -S apt-get update && sudo -S apt-get install -y python3-pip sshpass
+
+#- name: Install Python 3 and pip
+#  apt:
+#    name:
+#      - python3
+#      - python3-pip
+#    state: present
+#    update_cache: yes
+#  become: true
+
+- name: Install Python package manager (Debian/Ubuntu)
+  apt:
+    name: python3-pip
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+  ignore_errors: yes
+
+#- name: Install Python3 venv package
+#  apt:
+#    name: python3-venv
+#    state: present
+#  when: ansible_os_family == "Debian"
+
+#- name: Install Python package manager (RedHat/CentOS)
+#  yum:
+#    name: python3
+#    state: present
+#    update_cache: yes
+#  when: ansible_os_family == "RedHat"
+#  ignore_errors: yes
+#
+#- name: Install Python package manager (Alpine)
+#  apk:
+#    name: python3
+#    state: present
+#    update_cache: yes
+#  when: ansible_os_family == "Alpine"
+#  ignore_errors: yes
+
+- name: Ensure group exists
+  group:
+    name: "{{ app_group }}"
+
+- name: Ensure user exists
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+
+- name: Ensure project directory exists
+  file:
+    path: "{{ app_path }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0755'
+
+- name: Copy project files to remote server
+  copy:
+    src: "{{ playbook_dir }}/../service/"
+    dest: "{{ app_path }}/"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Extract binary
+  unarchive:
+    src: "/tmp/{{ linux_binary_name }}"
+    dest: "{{ target_path }}"
+    remote_src: yes
+
+#- name: Copy service files
+#  copy:
+#    src: "{{ item }}"
+#    dest: "/opt/my_service/{{ item | basename }}"
+#  with_items:
+#    - main.py
+#    - requirements.txt
+
+#- name: Create virtual environment
+#  command:
+#    cmd: "python3 -m venv {{ venv_path }}"
+#    args:
+#      creates: "{{ venv_path }}/bin/activate"
+#    creates: "{{ venv_path }}/bin/python"
+#    become: yes
+#    become_user: "{{ app_user }}"
+#    when: create_venv
+
+#- name: Create virtual environment
+#  command: "python3 -m venv {{ venv_path }}"
+#  args:
+#    creates: "{{ venv_path }}/bin/activate"
+#  become: yes
+#  become_user: "{{ app_user }}"
+#  when: create_venv
+#
+#- name: Install Application Dependencies
+#  command: "{{ venv_path }}/bin/pip install -r {{ app_path }}/requirements.txt"
+#  become: yes
+#  become_user: "{{ app_user }}"
+#  when: install_packages
+#  notify: restart python service
+
+- name: Configure environment files
+  lineinfile:
+    path: "{{ app_path }}/.env.ansible"
+    line: "{{ item.key }}={{ item.value }}"
+    create: yes
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0600'
+  with_dict: "{{ service_environment }}"
+  no_log: true
+
+- name: Create /etc/docker directory if it doesn't exist
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: Configure /etc/docker/daemon.json
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+        {
+            "hosts": ["unix:///var/run/docker.sock", "tcp://0.0.0.0:2375"]
+        }
+        mode: '0644'
+    notify: Restart Docker
+
+- name: Ensure Docker socket directory exists
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    state: directory
+    mode: '0755'
+
+- name: Configure systemd to allow Docker's TCP socket
+  ansible.builtin.lineinfile:
+    path: /usr/lib/systemd/system/docker.service
+    regexp: '^ExecStart='
+    line: 'ExecStart=/usr/bin/dockerd'
+    state: present
+    notify:
+        - Reload systemd
+        - Restart Docker
+
+- name: Copy systemd service file
+  copy:
+    src: ../files/ms_agent.service
+    dest: /etc/systemd/system/ms_agent.service
+    mode: '0644'
+  become: yes
+  register: service_file
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+  when: service_file.changed
+
+- name: Enable and start service
+  systemd:
+    name: "{{ service_name }}"
+    state: restarted
+    enabled: yes
+
+- name: Ensure agent service is running
+  systemd:
+    name: "{{ service_name }}"
+    state: started
+    enabled: yes
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted

@@ -1,0 +1,16 @@
+---
+#ansible_python_interpreter: "/usr/local/bin/python3"
+service_name: "ms_agent"
+service_description: "MS AGENT Service"
+python_version: "3.12"
+agent_version: "{{ agent_version | default('latest') }}"
+env_name: "{{ environment | default('production') }}"
+venv_path: "/opt/{{ service_name }}/venv"
+app_path: "/opt/{{ service_name }}/service"
+app_user: "{{ service_name }}"
+app_group: "{{ service_name }}"
+repo_url: "https://github.com/ZEGIFTED/MS.AGENT.git"
+repo_version: "{{ agent_version }}"
+service_environment:
+    PYTHONPATH: "{{ app_path }}"
+    LOG_LEVEL: "INFO"

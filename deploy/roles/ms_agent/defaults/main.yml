@@ -1,0 +1,11 @@
+# Default variables - can be overridden
+python_executable: "python{{ python_version }}"
+service_working_dir: "{{ app_path }}"
+service_exec_start: "{{ venv_path }}/bin/python {{ app_path }}/service/ms_agent.py"
+service_restart: "always"
+service_restart_sec: "5"
+log_dir: "/var/log/{{ service_name }}"
+create_venv: true
+install_packages: true
+enable_service: true
+start_service: true

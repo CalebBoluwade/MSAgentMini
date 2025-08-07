@@ -1,0 +1,21 @@
+- name: Ensure target directory exists
+  win_file:
+    path: "{{ windows_target_path }}"
+    state: directory
+
+- name: Copy Go binary
+  win_copy:
+    src: "{{ local_windows_path }}"
+    dest: "{{ windows_target_path }}\\{{ app_name }}.exe"
+
+- name: Install Go app as Windows service using NSSM
+  win_command: >
+    nssm install MSAgent "{{ windows_target_path }}\\{{ app_name }}.exe"
+  args:
+    creates: 'C:\Program Files\nssm\win64\MSAgent'
+
+- name: Start MSAgent service
+  win_service:
+    name: MSAgent
+    state: started
+    start_mode: auto
